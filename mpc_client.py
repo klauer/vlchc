@@ -7,6 +7,7 @@ from tornado import gen
 
 import config
 from mpc_reqs import MpcCommandEnum
+from mpc_status import StatusPoller
 
 
 logger = logging.getLogger(__name__)
@@ -58,7 +59,6 @@ vlc_to_mpc = dict(
     pl_stop=basic_command(MpcCommandEnum.STOP),
     pl_next=basic_command(MpcCommandEnum.NEXT_FILE),
     pl_previous=basic_command(MpcCommandEnum.PREVIOUS_FILE),
-    fullscreen=basic_command(MpcCommandEnum.FULLSCREEN_NO_RES_CHANGE),
     title=basic_command(MpcCommandEnum.DVD_TITLE_MENU),
     chapter=basic_command(MpcCommandEnum.DVD_CHAPTER_MENU),
     audio_track=basic_command(MpcCommandEnum.NEXT_AUDIO_TRACK),
@@ -110,6 +110,23 @@ def mpc_key(value=0, **kwargs):
     return dict(wm_command=keys[value])
 
 
+@handles('fullscreen')
+def fullscreen(**kwargs):
+    poller = StatusPoller.instance
+    poller.fullscreen = not poller.fullscreen
+    return dict(wm_command=MpcCommandEnum.FULLSCREEN_NO_RES_CHANGE)
+
+
+@handles('seek')
+def seek(value=0, **kwargs):
+    poller = StatusPoller.instance
+    vlc_position = float(value)
+    vlc_length = poller.status['length']
+    percent = (vlc_position / vlc_length) * 100.0
+    return dict(wm_command=MpcCommandEnum.CMD_SET_POSITION,
+                percent=percent)
+
+
 # @handles('pl_delete')
 # @handles('pl_empty')
 # @handles('pl_sort')
@@ -118,7 +135,6 @@ def mpc_key(value=0, **kwargs):
 # @handles('pl_repeat')
 # @handles('pl_sd')
 # @handles('snapshot')
-# @handles('seek')
 # @handles('key')
 # @handles('audiodelay') = mpc_audiodelay  #
 # @handles('rate')

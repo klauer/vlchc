@@ -1,6 +1,4 @@
 import ast
-import time
-import threading
 import pathlib
 import logging
 
@@ -50,21 +48,30 @@ def mpc_to_vlc(status):
     if duration == 0:
         duration = 1
 
+    # position is normalized
+    position = (status['position'] / duration)
+    vlc_time = status['position'] / 1000.0
+
+    # mpc-hc duration in msec
+    # vlc duration in seconds
+    vlc_duration = int(duration / 1000.0)
+
     vlc_status = {
+      "time": vlc_time,
+      "volume": volume,
+      "length": vlc_duration,
+      "state": status['statestring'].lower(),
+
+      "stats": stats,
       "fullscreen": False,
       "repeat": False,
       "subtitledelay": 0,
       "equalizer": [],
-      "stats": stats,
 
       "aspectratio": "default",
       "audiodelay": 0.0,
       "apiversion": 3,
       "currentplid": 4,
-      "time": status['position'],
-      "volume": volume,
-      "length": status['duration'],
-      "state": status['statestring'].lower(),
       "random": False,
       "audiofilters": {
         "filter_0": ""
@@ -79,7 +86,7 @@ def mpc_to_vlc(status):
       },
       "loop": False,
       "version": "2.2.1 Terry Pratchett (Weatherwax)",
-      "position": (status['position'] / duration),
+      "position": position,
       "information": {
         "chapter": 0,
         "chapters": [0],
@@ -100,18 +107,19 @@ def mpc_to_vlc(status):
             "Sample_rate": "48000 Hz",
             "Codec": "MPEG AAC Audio (mp4a)"
           },
-          "meta": {
-            "NUMBER_OF_FRAMES": "162607",
-            "DURATION": "01: 55: 37.899000000",
-            "filename": status['filepath'],
-            "_STATISTICS_TAGS": ("BPS DURATION NUMBER_OF_FRAMES "
-                                 "NUMBER_OF_BYTES"),
-            "NUMBER_OF_BYTES": "163113973",
-            "_STATISTICS_WRITING_APP": ("mkvmerge v7.7.0 ('Six Voices') 32bit"
-                                        "built on Feb 28 2015 23: 23: 00"),
-            "BPS": "188084",
-            "_STATISTICS_WRITING_DATE_UTC": "2015-09-13 03: 40: 53"
-          }
+          # "meta": {
+          #   "NUMBER_OF_FRAMES": "162607",
+          #   "DURATION": "01: 55: 37.899000000",
+          #   "filename": status['filepath'],
+          #   "_STATISTICS_TAGS": ("BPS DURATION NUMBER_OF_FRAMES "
+          #                        "NUMBER_OF_BYTES"),
+          #   "NUMBER_OF_BYTES": "163113973",
+          #   "_STATISTICS_WRITING_APP": ("mkvmerge v7.7.0 ('Six Voices')
+          #                               "32bit"
+          #                               "built on Feb 28 2015 23: 23: 00"),
+          #   "BPS": "188084",
+          #   "_STATISTICS_WRITING_DATE_UTC": "2015-09-13 03: 40: 53"
+          # }
         },
         "titles": [0]
       },
@@ -132,7 +140,7 @@ def mpc_to_vlc(status):
               "type": "leaf",
               "name": status['file'],
               "id": "4",
-              "duration": status['duration'],
+              "duration": vlc_duration,
               "uri": pathlib.Path(status['filepath']).as_uri(),
               "current": "current"
             }]
@@ -157,10 +165,9 @@ def test():
 
 
 class StatusPoller:
-    daemon = True
-
-    def __init__(self, *, host=None, port=None, delay=0.3):
+    def __init__(self, *, host=None, port=None, delay=0.1):
         super().__init__()
+        StatusPoller.instance = self
 
         if host is None:
             host = config.host
@@ -177,6 +184,7 @@ class StatusPoller:
         self.mpc_status = {}
         self.status = {}
         self.playlist = {}
+        self.fullscreen = False
 
     @gen.coroutine
     def update_status(self):
@@ -192,12 +200,12 @@ class StatusPoller:
         mpc_status = parse_status(status_html)
         self.mpc_status = mpc_status
         self.status, self.playlist = mpc_to_vlc(mpc_status)
+        self.status['fullscreen'] = self.fullscreen
 
     @gen.coroutine
     def run(self):
         logger.debug('Status poller started')
         while True:
-            print('status update')
             try:
                 yield self.update_status()
             except Exception as ex:
