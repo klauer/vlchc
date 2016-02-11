@@ -6,7 +6,7 @@ import tornado.autoreload
 from tornado import gen
 from tornado import httpclient
 
-from config import (vlc_password, vlc_passthru_port)
+from .config import (vlc_password, vlc_passthru_port)
 
 
 class PassThroughHandler(tornado.web.RequestHandler):

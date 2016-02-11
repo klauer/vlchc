@@ -8,8 +8,7 @@ import lxml.html
 from tornado import httpclient
 from tornado import gen
 
-
-import config
+from . import config
 
 
 logger = logging.getLogger(__name__)

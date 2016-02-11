@@ -5,9 +5,9 @@ import urllib.parse
 from tornado import httpclient
 from tornado import gen
 
-import config
-from mpc_reqs import MpcCommandEnum
-from mpc_status import StatusPoller
+from . import config
+from .mpc_reqs import MpcCommandEnum
+from .mpc_status import StatusPoller
 
 
 logger = logging.getLogger(__name__)

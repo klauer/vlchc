@@ -13,14 +13,14 @@ from tornado import gen
 
 import json
 
-from mpc_client import (mpc_command, vlc_to_mpc,
-                        send_command_request)
-from mpc_status import StatusPoller
+from .mpc_client import (mpc_command, vlc_to_mpc,
+                         send_command_request)
+from .mpc_status import StatusPoller
 
-from auth import basic_auth
-import config
-
+from .auth import basic_auth
+from . import config
 # from debug import PassThroughHandler
+
 
 logger = logging.getLogger(__name__)
 server_root = os.path.abspath(os.path.dirname(__file__))
