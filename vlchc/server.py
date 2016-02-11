@@ -13,8 +13,8 @@ from tornado import gen
 
 import json
 
-from .mpc_client import (mpc_command, vlc_to_mpc,
-                         send_command_request)
+from .mpc_client import (mpc_command, vlc_to_mpc, send_command_request,
+                         send_get_request)
 from .mpc_status import StatusPoller
 
 from .auth import basic_auth
@@ -47,13 +47,20 @@ class VlcStatusHandler(tornado.web.RequestHandler):
         else:
             logger.debug('     - vlc %s -> mpc %s', vlc_command, mpc_command)
             kw = dict(value=self.get_argument('val', default=0),
+                      input_=self.get_argument('input', default=''),
                       )
+
+            if kw['input_']:
+                kw['input_'] = uri_to_filename(kw['input_'])
+
             try:
                 command_dict = cmd_func(**kw)
             except Exception as ex:
                 logger.error('Command failed (%s)', cmd_func, exc_info=ex)
             else:
-                if command_dict is not None:
+                if 'url' in command_dict:
+                    yield send_get_request(**command_dict)
+                else:
                     yield send_command_request(command_dict)
 
         global status_poller
@@ -112,6 +119,21 @@ class RootHandler(tornado.web.RequestHandler):
             self.write(f.read())
 
 
+def uri_to_filename(uri):
+    # TODO pathlib?
+
+    # obviously i don't know what i'm doing
+    # uri = self.decode_argument(self.get_argument('uri'))
+    # local_path_bytes = urllib.parse.unquote_to_bytes(uri)
+    # local_path = local_path_bytes.decode('utf-8', errors='ignore')
+
+    res = urllib.parse.urlparse(uri)
+
+    local_path = res.path[1:]
+    local_path_bytes = urllib.parse.unquote_to_bytes(local_path)
+    return local_path_bytes.decode('utf-8', errors='ignore')
+
+
 class VlcBrowseHandler(tornado.web.RequestHandler):
     def path_list(self, local_path):
         if local_path.endswith('~') or not local_path:
@@ -140,19 +162,8 @@ class VlcBrowseHandler(tornado.web.RequestHandler):
 
     @gen.coroutine
     def get(self):
-        # obviously i don't know what i'm doing
-        # uri = self.decode_argument(self.get_argument('uri'))
-        # local_path_bytes = urllib.parse.unquote_to_bytes(uri)
-        # local_path = local_path_bytes.decode('utf-8', errors='ignore')
-
         uri = self.get_argument('uri')
-        res = urllib.parse.urlparse(uri)
-
-        local_path = res.path[1:]
-        local_path_bytes = urllib.parse.unquote_to_bytes(local_path)
-        local_path = local_path_bytes.decode('utf-8', errors='ignore')
-        # TODO pathlib?
-
+        local_path = uri_to_filename(uri)
         logger.debug('local path %s', local_path)
 
         file_info = self.path_list(local_path)

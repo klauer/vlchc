@@ -13,7 +13,18 @@ from .mpc_status import StatusPoller
 logger = logging.getLogger(__name__)
 
 
-def mpc_command(data, *, host='localhost', port=config.mpc_port):
+def get_mpc_host_port(host=None, port=None):
+    if host is None:
+        host = config.host
+    if port is None:
+        port = config.mpc_port
+
+    return host, port
+
+
+def mpc_command(data, *, host=None, port=None):
+    host, port = get_mpc_host_port(host, port)
+
     command_url = ('http://{host}:{port}/command.html'
                    ''.format(host=host, port=port))
     logger.debug('Generating command request URL=%s', command_url)
@@ -36,6 +47,26 @@ def send_command_request(cmd):
     req = mpc_command(cmd)
     logger.debug('req %s (data=%s)', req.url, cmd)
 
+    try:
+        response = yield client.fetch(req)
+    finally:
+        client.close()
+    return response
+
+
+@gen.coroutine
+def send_get_request(url, *, host=None, port=None, **data):
+    host, port = get_mpc_host_port(host, port)
+    client = httpclient.AsyncHTTPClient()
+    args = '&'.join('{}={}'.format(k, v) for k, v in data.items())
+    command_url = ('http://{host}:{port}/{url}?{args}'
+                   ''.format(host=host, port=port, url=url,
+                             args=args))
+    logger.debug('Generating command request URL=%s', command_url)
+    req = httpclient.HTTPRequest(command_url,
+                                 method='GET',
+                                 # body=urllib.parse.urlencode(data),
+                                 )
     try:
         response = yield client.fetch(req)
     finally:
@@ -125,6 +156,13 @@ def seek(value=0, **kwargs):
     percent = (vlc_position / vlc_length) * 100.0
     return dict(wm_command=MpcCommandEnum.CMD_SET_POSITION,
                 percent=percent)
+
+
+@handles('in_play')
+def play_file(input_=0, **kwargs):
+    return {'url': 'browser.html',
+            'path': input_
+            }
 
 
 # @handles('pl_delete')
