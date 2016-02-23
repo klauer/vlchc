@@ -81,10 +81,10 @@ def basic_command(wm_command):
     return wrapped
 
 
-# in_enqueue=MpcCommandEnum.
 vlc_to_mpc = dict(
     pl_play=basic_command(MpcCommandEnum.PLAY),
-    pl_pause=basic_command(MpcCommandEnum.PAUSE),
+    # pl_pause=basic_command(MpcCommandEnum.PAUSE),
+    pl_pause=basic_command(MpcCommandEnum.PLAY_PAUSE),
     pl_forcepause=basic_command(MpcCommandEnum.PAUSE),
     pl_forceresume=basic_command(MpcCommandEnum.PLAY),
     pl_stop=basic_command(MpcCommandEnum.STOP),
