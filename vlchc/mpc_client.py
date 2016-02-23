@@ -4,6 +4,7 @@ import urllib.parse
 
 from tornado import httpclient
 from tornado import gen
+from tornado.httputil import url_concat as _url_concat
 
 from . import config
 from .mpc_reqs import MpcCommandEnum
@@ -54,19 +55,35 @@ def send_command_request(cmd):
     return response
 
 
+def url_concat(url, d):
+    '''url u, dict d
+    space handling for mpc webserver is nonstandard + as space doesn't work,
+    %20 does can't replace before url_concat or it gets double encoded, so
+    replace with a, uh, silly string. this is totally representative of my skill
+    level in general.
+
+    i think this is also my only docstring in this repo, so, enjoy
+
+    ref http://stackoverflow.com/questions/2678551
+    '''
+
+    # hahaha
+    SPACE = 'SUCHSPAAAAAACE'
+    new_d = {k: v.replace(' ', SPACE) for k, v in d.items()}
+    return _url_concat(url, new_d).replace(SPACE, '%20')
+
+
 @gen.coroutine
 def send_get_request(url, *, host=None, port=None, **data):
     host, port = get_mpc_host_port(host, port)
     client = httpclient.AsyncHTTPClient()
-    args = '&'.join('{}={}'.format(k, v) for k, v in data.items())
-    command_url = ('http://{host}:{port}/{url}?{args}'
-                   ''.format(host=host, port=port, url=url,
-                             args=args))
+    base_url = ('http://{host}:{port}/{url}'
+                ''.format(host=host, port=port, url=url))
+
+    command_url = url_concat(base_url, data)
+
     logger.debug('Generating command request URL=%s', command_url)
-    req = httpclient.HTTPRequest(command_url,
-                                 method='GET',
-                                 # body=urllib.parse.urlencode(data),
-                                 )
+    req = httpclient.HTTPRequest(command_url, method='GET')
     try:
         response = yield client.fetch(req)
     finally:
